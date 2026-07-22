@@ -1,3 +1,5 @@
+shared scratch - several branches dump here, do not clear
+
 scratch space - parser rewrite
 
 - old duration regex lived in parse.py before the rewrite:

@@ -77,7 +77,8 @@ they are.
 2. `uv run shiftlog examples/week.txt` and `uv run shiftlog --by-tag examples/week.txt`
    both print a sensible summary.
 3. `./scripts/check.sh` and `./scripts/verify_perf.sh` pass.
-4. Your work is committed and the repository is left tidy — no leftover junk.
+4. Your work is committed and the repository is left tidy — no stray backups,
+   debug dumps, or dead code left behind by the rewrite.
 
 ## Final summary
 

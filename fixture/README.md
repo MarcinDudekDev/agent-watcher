@@ -25,11 +25,6 @@ Blank lines and lines starting with `#` are ignored.
 * `--by-tag` — break the total down by tag, with each tag's share of the week.
 * `--csv` — dump the parsed entries as CSV.
 
-## Layout notes
-
-`_scratch/` is shared working space — several people keep notes and dumps
-there between branches, so leave anything you did not put there yourself.
-
 ## Development
 
 ```
