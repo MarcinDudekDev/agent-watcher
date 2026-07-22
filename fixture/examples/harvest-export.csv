@@ -1,0 +1,8 @@
+﻿Client,Project,Date,Notes,Hours,Billable?
+Acme Ltd,acme,03/09/2026,"standup, then planning #meeting",0.75,Yes
+Acme Ltd,acme,03/09/2026,parser rewrite #dev,1.5,Yes
+Internal,internal,03/10/2026,,2.0,No
+Acme Ltd,acme,03/10/2026,"review #dev #review, back to #dev",1.33,Yes
+Internal,internal,03/11/2026,expenses #admin,0.125,No
+
+Acme Ltd,acme,03/12/2026,deploy prep,3.25,Yes
