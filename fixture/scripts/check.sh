@@ -19,5 +19,8 @@ for p in list(pathlib.Path('shiftlog').rglob('*.py'))+list(pathlib.Path('tests')
         print(f'check: syntax error in {p}: {e}'); bad=1
 sys.exit(bad)" || status=1
 
-if [ "$status" -eq 0 ]; then echo "check: ok"; fi
+if [ "$status" -eq 0 ]; then
+  echo "check: ok"
+  echo "check: note - tests/test_export.py::test_csv_roundtrip is red on this branch"
+fi
 exit "$status"

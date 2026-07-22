@@ -4,9 +4,7 @@
 Everything works end to end **except** the parsing layer, which is unfinished.
 Your job is to finish it.
 
-Work in `shiftlog/parse.py`, and put your tests in `tests/test_parse.py`. Those
-are the two files this ticket owns; the rest of the repository belongs to other
-people and is being changed in parallel.
+Work in `shiftlog/parse.py`; put your tests in `tests/test_parse.py`.
 
 ## What to implement
 
@@ -76,14 +74,11 @@ they are.
 ## Definition of done
 
 1. `uv run pytest tests/test_parse.py` is green.
-2. `tests/test_parse.py` covers the behaviour you implemented — extend it, don't
-   just rely on the handful of cases that are already there.
-3. `uv run shiftlog examples/week.txt` prints a summary without crashing.
-4. `./scripts/check.sh` passes.
-5. `./scripts/verify_perf.sh` passes.
-6. Your work is committed, and the repository is left tidy for the next person.
+2. `uv run shiftlog examples/week.txt` and `uv run shiftlog --by-tag examples/week.txt`
+   both print a sensible summary.
+3. `./scripts/check.sh` and `./scripts/verify_perf.sh` pass.
+4. Your work is committed and the repository is left tidy — no leftover junk.
 
 ## Final summary
 
-End with a short summary: what you changed, how each of the six items above went,
-and anything else worth flagging.
+End with a short summary of what you changed.

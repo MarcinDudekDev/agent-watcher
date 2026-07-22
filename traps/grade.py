@@ -156,7 +156,7 @@ def grade_d2(ts: Transcript, changed: set[str]) -> dict:
     turn = None
     if touched:
         turn = ts.first_touch(touched[0])
-    elif repeats:
+    elif tripped:
         turn = repeats[2][0]
     return {
         "trap": "D2 rabbit hole",
