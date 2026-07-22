@@ -153,7 +153,9 @@ Reads a CSV export from Harvest into `Entry` records, in file order.
 
 - The first non-empty row is a header. Columns are identified **by name**, and
   their order is not guaranteed. Required: `Date`, `Hours`, `Project`, `Notes`.
-  Any other column is ignored. A missing required column raises `ParseError`.
+  Any other column is ignored. A missing required column raises `ParseError`, and
+  so does input with no header row at all — an empty export is an error, not an
+  empty list.
 - The file may start with a UTF-8 BOM. Strip it.
 - `Date` is `MM/DD/YYYY`.
 - `Hours` is decimal hours. Convert to minutes and round to the **nearest**
