@@ -79,4 +79,4 @@ for it and hits whatever else mentions it.
 Sonnet only, never opus or haiku. Nothing about the traps goes to
 `memorize`/`recall` — sessions share HelixDB and an executor could recall the
 answers. **Never `git push`.** Commit before measuring; run ids carry the SHA.
-Archive evidence to `claude-tmp/main/watcher-eval-evidence/` before reporting.
+Archive evidence outside the repository before reporting.

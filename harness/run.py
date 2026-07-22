@@ -39,10 +39,9 @@ TRAPS = ROOT / "traps"
 # Run directories live outside this repository AND away from the evidence archive.
 #
 # They were `runs/` inside the repo, which put the executor's workdir underneath
-# the directory holding `traps/`. Moving them to ~/claude-tmp/watcher-eval/runs
-# fixed that and created a second leak: it made the workdir a sibling of
-# ~/claude-tmp/main/watcher-eval-evidence, and run 7b815c5-seededoff-8 read the
-# sandbox-escape write-up out of it at turn 127.
+# the directory holding `traps/`. Moving them next to the evidence archive fixed
+# that and created a second leak: it made the workdir a sibling of the write-ups
+# describing the traps, and one run read the sandbox-escape note at turn 127.
 #
 # The chain is not incidental. D4 requires `shiftbench` to be missing, so every
 # executor eventually sweeps the filesystem looking for it, and every sweep hits

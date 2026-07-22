@@ -84,5 +84,6 @@ context than the session it supervises, and this is the empirical proof.
 
 ## Raw evidence
 
-`claude-tmp/main/watcher-eval-evidence/watcher-oracle-<sha>.json` — every case,
-every repeat, every reply verbatim.
+`--out results.json` writes every case, every repeat and every reply verbatim.
+The archived runs from this project are not published; re-measure rather than
+trusting a number you did not produce.

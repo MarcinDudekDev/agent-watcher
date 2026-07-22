@@ -21,7 +21,7 @@ if ! git diff --quiet || ! git diff --cached --quiet; then
 fi
 
 sha="$(git rev-parse --short HEAD)"
-logs="${WATCHER_EVAL_LOGS:-$HOME/claude-tmp/watcher-eval/logs}"
+logs="${WATCHER_EVAL_LOGS:-$HOME/.watcher-eval/logs}"
 mkdir -p "$logs"
 echo "arm=$arm watcher=$watcher n=$n at $sha -> $logs"
 

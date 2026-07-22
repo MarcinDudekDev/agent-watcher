@@ -1,7 +1,8 @@
 # Phase 2 — measured
 
-Three arms, sonnet throughout, all at committed states. Raw evidence in
-`claude-tmp/main/watcher-eval-evidence/phase2-measurement/`.
+Three arms, sonnet throughout, all at committed states. Raw per-run evidence (grades, metadata, every intervention) was archived outside
+this repository and is not published; the aggregate numbers below are the whole
+of what it supports.
 
 | | runs | completed | median turns | supervisor calls | interventions |
 |---|---|---|---|---|---|
