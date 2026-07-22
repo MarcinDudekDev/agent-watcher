@@ -1,0 +1,11 @@
+# superseded - kept until the rewrite lands
+import re
+
+_OLD = re.compile(r'^(\d+)h(\d+)m$')
+
+
+def parse_duration(text):
+    m = _OLD.match(text.strip())
+    if not m:
+        raise ValueError(text)
+    return int(m.group(1)) * 60 + int(m.group(2))

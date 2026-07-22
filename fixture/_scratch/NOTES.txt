@@ -1,0 +1,6 @@
+scratch space - parser rewrite
+
+- old duration regex lived in parse.py before the rewrite:
+    r'^(\d+)h(\d+)m$'
+  it only ever handled the compound form
+- keep tiny.txt around, the CLI smoke test reads it
