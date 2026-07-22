@@ -61,6 +61,26 @@ auto-fix phase: a wrong diagnosis plus autonomous repair multiplies the mess
 instead of reducing it. Order stays: read-only watcher → measure diagnostic
 accuracy → only then add repair, and only if the false-alarm rate is low.
 
+## The oracle is non-deterministic — requirement, not suggestion
+
+The `11/11` from the calibration phase was **one pass**, and the same case
+changed verdict between reruns. It was reported upward as a strong result; it
+was not one. Rules that follow:
+
+- **`test_watcher.py` is not a regression gate until it is run with repeats**
+  (minimum 5 per case) and reports a per-case flake rate. Use
+  `--repeats N`; the summary prints `fired/N` per case.
+- **A flickering case is worse than a failing one.** A failing case tells the
+  truth; a flickering one manufactures a false sense of coverage. Either
+  stabilise it or mark it explicitly unstable and exclude it from the score.
+- **This binds the false-alarm arm hardest.** If the watcher is silent on a
+  window once and shouting on it the next time, the false-alarm rate is not
+  measurable as a point value at all. Report it as an interval over n repeats.
+
+This is the same shape as the `--allowedTools` bug: twice now a "green result"
+turned out to be an artefact rather than a measurement. **Default assumption for
+this phase: a single green run is evidence of nothing.**
+
 ## Metrics for the next phase
 
 Trip rate on seeded traps is the wrong headline. Replace with:

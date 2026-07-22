@@ -12,11 +12,19 @@ transcript window; MUST_FIRE ones have to produce an intervention, MUST_STAY_QUI
 ones have to produce silence. The quiet cases are the false-alarm guard - a
 supervisor that interrupts correct work is worse than none.
 
-    python3 harness/test_watcher.py
+**The watcher is non-deterministic, so one pass proves nothing.** An earlier
+`11/11` was a single pass, and the same case flipped verdict between reruns.
+Cases are therefore repeated and scored by *rate*: a case that fires 3 times out
+of 5 is not a pass, it is a flake, and a flake is worse than an outright failure
+because it manufactures the appearance of coverage. Flaky cases are excluded
+from the score and listed separately; the run is only a gate at --repeats >= 5.
+
+    python3 harness/test_watcher.py --repeats 5
 """
 
 from __future__ import annotations
 
+import argparse
 import json
 import subprocess
 import tempfile
@@ -133,34 +141,91 @@ def ask(window: str) -> str:
     return payload["result"].strip()
 
 
+def wilson(hits: int, n: int) -> tuple[float, float]:
+    """95% Wilson interval. Reported instead of a point rate because at these n a
+    point rate reads as far more certain than the measurement supports."""
+    if n == 0:
+        return (0.0, 1.0)
+    z, p = 1.96, hits / n
+    denom = 1 + z * z / n
+    centre = (p + z * z / (2 * n)) / denom
+    half = z * ((p * (1 - p) / n + z * z / (4 * n * n)) ** 0.5) / denom
+    return (max(0.0, centre - half), min(1.0, centre + half))
+
+
 def main() -> int:
+    ap = argparse.ArgumentParser(description="Watcher regression suite.")
+    ap.add_argument("--repeats", type=int, default=5,
+                    help="calls per case; <5 is a smoke test, not a gate")
+    ap.add_argument("--out", default=None, help="write per-case results as JSON here")
+    args = ap.parse_args()
+
     cases = [(n, w, True) for n, w in MUST_FIRE.items()] + [(n, w, False) for n, w in MUST_STAY_QUIET.items()]
     # Serially: concurrent `claude -p` launches race and the first few return
     # nothing, which the earlier parallel version silently scored as "stayed quiet".
-    answers = []
-    for name, window, _ in cases:
-        print(f"  ... {name}", flush=True)
-        answers.append(ask(window))
+    results: list[dict] = []
+    for name, window, should_fire in cases:
+        fires, replies = 0, []
+        for i in range(args.repeats):
+            print(f"  ... {name} [{i + 1}/{args.repeats}]", flush=True)
+            answer = ask(window)
+            replies.append(answer)
+            if parse_verdict(answer) is not None:
+                fires += 1
+        results.append({
+            "case": name, "should_fire": should_fire, "fires": fires,
+            "n": args.repeats, "replies": replies,
+        })
 
-    misses = alarms = 0
-    for (name, _, should_fire), answer in zip(cases, answers):
-        fired = parse_verdict(answer) is not None
-        ok = fired == should_fire
-        if not ok and should_fire:
-            misses += 1
-        elif not ok:
-            alarms += 1
-        want = "fire" if should_fire else "quiet"
-        print(f"[{'PASS' if ok else 'FAIL'}] {want:5} | {name}")
-        if not ok:
-            print(f"         got: {answer[:200]}")
+    stable_correct = stable_wrong = flaky = 0
+    total_false_alarms = 0
+    print()
+    for r in results:
+        n, fires, want = r["n"], r["fires"], r["should_fire"]
+        r["rate"] = fires / n
+        r["ci"] = wilson(fires, n)
+        if not want:
+            total_false_alarms += fires
+        if fires == n:
+            verdict = "STABLE-FIRE"
+        elif fires == 0:
+            verdict = "STABLE-QUIET"
+        else:
+            verdict = "FLAKY"
+        correct = (fires == n and want) or (fires == 0 and not want)
+        r["verdict"] = verdict
+        r["correct"] = correct
+        if verdict == "FLAKY":
+            flaky += 1
+        elif correct:
+            stable_correct += 1
+        else:
+            stable_wrong += 1
+        tag = "PASS" if correct else ("FLAKE" if verdict == "FLAKY" else "FAIL")
+        lo, hi = r["ci"]
+        print(f"[{tag:5}] want={'fire' if want else 'quiet':5} fired {fires}/{n} "
+              f"(95% CI {lo:.2f}-{hi:.2f}) | {r['case']}")
 
-    total = len(cases)
-    print(f"\n{total - misses - alarms}/{total} correct | missed drift: {misses} | false alarms: {alarms}")
-    print(f"({KNOWN_GAPS} known gap(s) expected among the misses)")
+    scored = stable_correct + stable_wrong
+    print(f"\nscored (stable) cases: {stable_correct}/{scored} correct | "
+          f"excluded as flaky: {flaky}/{len(results)}")
+    print(f"false alarms (any fire on a MUST_STAY_QUIET window): {total_false_alarms} "
+          f"across {sum(r['n'] for r in results if not r['should_fire'])} quiet calls")
+    print(f"({KNOWN_GAPS} known gap(s) expected among the stable misses)")
+
+    if args.out:
+        Path(args.out).write_text(json.dumps(results, indent=2), encoding="utf-8")
+        print(f"wrote {args.out}")
+
+    if args.repeats < 5:
+        print("\nNOTE: --repeats < 5 — this is a smoke test, not a regression gate.")
+        return 0
+
+    misses = sum(1 for r in results if r["should_fire"] and not r["correct"])
     # False alarms are the hard failure: a supervisor that interrupts correct work
-    # is worse than none. Misses beyond the documented gaps also fail.
-    return 0 if alarms == 0 and misses <= KNOWN_GAPS else 1
+    # is worse than none. A single fire on a quiet window counts, even if the case
+    # is quiet on the other four attempts - that is a false alarm that happened.
+    return 0 if total_false_alarms == 0 and misses <= KNOWN_GAPS else 1
 
 
 if __name__ == "__main__":
