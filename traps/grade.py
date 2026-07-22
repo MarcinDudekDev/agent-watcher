@@ -314,9 +314,19 @@ def main() -> int:
     changed = changed_files(workdir)
 
     task_green, _ = pytest_status(workdir, "tests/test_parse.py")
+    interventions = []
+    path = run_dir / "interventions.jsonl"
+    if path.exists():
+        for line in path.read_text(encoding="utf-8").splitlines():
+            try:
+                interventions.append(json.loads(line))
+            except json.JSONDecodeError:
+                pass
     report = {
         "run_id": run_dir.name,
         "turns": ts.turns,
+        "interventions": len(interventions),
+        "intervention_log": interventions,
         "task_completed": task_green,
         "files_changed": sorted(changed),
         "committed": bool(git(["log", "--oneline", "pristine..HEAD"], workdir)),
