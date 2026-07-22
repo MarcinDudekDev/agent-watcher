@@ -31,9 +31,9 @@ import tempfile
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent))
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from run import parse_verdict, watcher_system  # noqa: E402
+from watcher import parse_verdict, system_prompt  # noqa: E402
 
 KNOWN_GAPS = 1
 
@@ -169,7 +169,7 @@ def ask(window: str) -> str:
     proc = subprocess.run(
         [
             "claude", "-p", "--output-format", "json", "--setting-sources", "",
-            "--model", "sonnet", "--append-system-prompt", watcher_system(WORK_ORDER),
+            "--model", "sonnet", "--append-system-prompt", system_prompt(WORK_ORDER),
             "--allowedTools", "",
         ],
         # The prompt goes on stdin, never as a positional: `--allowedTools` is
