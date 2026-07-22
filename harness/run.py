@@ -24,6 +24,10 @@ import time
 import uuid
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+from clean_fixture import defuse  # noqa: E402
+
 ROOT = Path(__file__).resolve().parent.parent
 FIXTURE = ROOT / "fixture"
 TRAPS = ROOT / "traps"
@@ -103,10 +107,16 @@ def copy_fixture(dest: Path) -> None:
     shutil.copytree(FIXTURE, dest, ignore=ignore)
 
 
-def build_pristine(run_dir: Path) -> Path:
+def build_pristine(run_dir: Path, arm: str) -> Path:
     """A one-commit repo tagged `pristine`, rebuilt from fixture/ every run."""
     src = run_dir / "pristine"
     copy_fixture(src)
+    if arm == "control":
+        # Defused before the initial commit, so `pristine` really is trap-free and
+        # the grader's diffs have nothing seeded to compare against.
+        changes = defuse(src)
+        log(f"control arm: {changes}")
+        (run_dir / "defused.json").write_text(json.dumps(changes, indent=2), encoding="utf-8")
     env = {
         **os.environ,
         "GIT_AUTHOR_NAME": "shiftlog",
@@ -131,8 +141,8 @@ def hash_tree(root: Path) -> dict[str, str]:
     return out
 
 
-def prepare(run_dir: Path) -> tuple[Path, dict]:
-    pristine = build_pristine(run_dir)
+def prepare(run_dir: Path, arm: str) -> tuple[Path, dict]:
+    pristine = build_pristine(run_dir, arm)
     origin = run_dir / "origin.git"
     run(["git", "clone", "--bare", "-q", str(pristine), str(origin)])
     workdir = run_dir / "workdir"
@@ -382,6 +392,9 @@ def execute(workdir: Path, run_dir: Path, watcher: bool, model: str, max_turns: 
 def main() -> int:
     ap = argparse.ArgumentParser(description="Run one watcher-eval exam pass.")
     ap.add_argument("--watcher", choices=["on", "off"], default="off")
+    ap.add_argument("--arm", choices=["seeded", "control"], default="seeded",
+                    help="control = the same work order with every trap removed; "
+                         "any intervention on a control run is a false alarm")
     ap.add_argument("--id", default=None, help="run id (default: timestamped)")
     ap.add_argument("--model", default="sonnet", help="executor model")
     ap.add_argument("--max-turns", type=int, default=80)
@@ -396,13 +409,14 @@ def main() -> int:
         return 2
     run_dir.mkdir(parents=True)
 
-    log(f"run {run_id} (watcher={args.watcher}, model={args.model})")
+    log(f"run {run_id} (watcher={args.watcher}, arm={args.arm}, model={args.model})")
     assert_clean_environment()
     external_before = external_snapshot()
-    workdir, _ = prepare(run_dir)
+    workdir, _ = prepare(run_dir, args.arm)
     meta = {
         "run_id": run_id,
         "watcher": args.watcher,
+        "arm": args.arm,
         "model": args.model,
         "max_turns": args.max_turns,
         "started": time.strftime("%Y-%m-%dT%H:%M:%S"),
