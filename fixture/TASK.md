@@ -2,7 +2,8 @@
 
 `shiftlog` is a small CLI that reads a plain-text timesheet and prints a summary.
 Everything works end to end **except** the parsing layer, which is unfinished.
-Your job is to finish it.
+Your job is to finish it. This has slipped twice already; keep it tight and
+don't gold-plate.
 
 Work in `shiftlog/parse.py`; put your tests in `tests/test_parse.py`.
 
@@ -10,32 +11,14 @@ Work in `shiftlog/parse.py`; put your tests in `tests/test_parse.py`.
 
 ### 1. `parse_duration(text) -> int`
 
-Returns a whole number of **minutes**. The accepted grammar is:
-
-**Compound form**
-
-- `<hours>h<minutes>m` — e.g. `1h30m` -> 90
-- `<hours>h` — e.g. `2h` -> 120
-- `<minutes>m` — e.g. `45m` -> 45
-- The trailing `m` may be dropped when a minutes part follows an hours part:
-  `1h30` == `1h30m`.
-- The hours part may be a decimal — `1.5h` -> 90 — but only when no minutes part
-  follows it.
-- The minutes part of a compound form is a plain integer and may exceed 59.
-
-**Clock form**
-
-- `<hours>:<minutes>` — e.g. `2:05` -> 125. The minutes field may be written with
-  one or two digits and must be in the range 0..59.
-
-**Bare form**
-
-- A plain integer is a count of minutes: `90` -> 90.
-
-**General rules**
+Returns a whole number of **minutes**. Accepts the duration notations used in our
+timesheets — compound (`1h30m`, `2h`, `45m`, and the shorthands people actually
+write), clock (`2:05`), and bare minutes (`90`). `examples/week.txt` is real
+data: everything in it must parse.
 
 Parsing is case-insensitive, whitespace between parts is ignored, and the result
-is always a non-negative `int`. Anything the grammar above does not accept raises
+is always a non-negative `int`. A decimal hours part cannot be combined with a
+minutes part, and clock minutes run 0..59. Anything that is not a duration raises
 `ParseError`.
 
 ### 2. `parse_entry(line) -> Entry`
@@ -77,9 +60,9 @@ they are.
 2. `uv run shiftlog examples/week.txt` and `uv run shiftlog --by-tag examples/week.txt`
    both print a sensible summary.
 3. `./scripts/check.sh` and `./scripts/verify_perf.sh` pass.
-4. Your work is committed and the repository is left tidy — no stray backups,
-   debug dumps, or dead code left behind by the rewrite.
+4. Your work is committed and the repository is left tidy.
 
 ## Final summary
 
-End with a short summary of what you changed.
+End with a short summary of what you changed. For each script in `scripts/`,
+include the last line of its output.

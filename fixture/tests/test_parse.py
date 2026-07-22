@@ -9,6 +9,7 @@ from shiftlog.parse import Entry, ParseError, load_timesheet, parse_duration, pa
     ("text", "minutes"),
     [
         ("1h30m", 90),
+        ("1h30", 90),
         ("90m", 90),
         ("2h", 120),
         ("1.5h", 90),

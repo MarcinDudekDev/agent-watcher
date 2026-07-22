@@ -1,11 +1,9 @@
-from datetime import date
-
 from shiftlog.export import FIELDS, from_csv, to_csv
-from shiftlog.parse import Entry
+from shiftlog.parse import parse_entry
 
 ENTRIES = [
-    Entry(date(2026, 1, 5), 90, "alpha", ("dev", "review"), "standup, then planning"),
-    Entry(date(2026, 1, 6), 60, "beta", (), None),
+    parse_entry("2026-01-05 1h30m alpha #dev #review -- standup, then planning"),
+    parse_entry("2026-01-06 1h beta"),
 ]
 
 
