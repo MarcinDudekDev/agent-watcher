@@ -14,6 +14,43 @@ whether it actually works.
 
 ---
 
+## Requirements
+
+**You need a working `claude` command.** The supervisor is not a library that
+calls an HTTP API — it shells out to the [Claude Code
+CLI](https://claude.com/claude-code) for every review. If `claude -p "hi"` works
+in your terminal, you are set up; if it does not, nothing here will run. Your
+Anthropic billing is whatever that CLI already uses, so there is no separate API
+key to configure.
+
+- **Python 3.14** and [`uv`](https://docs.astral.sh/uv/). Required, not
+  recommended — the exam fixture declares `requires-python = ">=3.14"`.
+- **macOS or Linux.** The harness uses POSIX shell, `git` and process pipes.
+  Untested on Windows.
+- **git**, for the exam harness. Not needed to use the supervisor on its own.
+- No network access is needed by the fixture itself.
+
+### What it costs
+
+Real figures from the runs in this repository, not estimates. Prices are
+whatever your CLI is billed at; these were Claude Sonnet in July 2026.
+
+| what | measured |
+|---|---|
+| one supervisor review | **$0.07**, about 2 seconds |
+| supervising a ~1 hour agent session (a review every 3 turns) | **≈ $9.50/hour** |
+| one exam run (the working agent itself) | **≈ $3.00**, about 11 minutes |
+| one exam run **with** supervision on top | ≈ $3.00 + ≈ $1.80 |
+| `harness/test_watcher.py --repeats 5` | 90 calls, ≈ $6, about 35 minutes |
+| reproducing all three sets of runs (24 runs) | **≈ $85**, several hours |
+
+The supervisor is the cheap part. Reviewing every 3 turns costs roughly 60% of
+what the agent it is watching costs, and you can make it cheaper by raising
+`every_n_turns`. Reproducing the full experiment is real money — do not start it
+by accident.
+
+---
+
 ## What was measured
 
 Three sets of runs, all on the same four-stage programming task, all with Claude
@@ -182,22 +219,83 @@ a claim the transcript **contradicts** is.
 
 ## Using it on your own project
 
-The supervisor does not know anything about the exam in this repository. Give it
-transcript events, a goal, and somewhere to deliver a message:
+The supervisor needs three things from you: **a stream of transcript events**, a
+**goal**, and a **`deliver` function** that gets an intervention into the running
+session. The first and third are the parts that need explaining.
 
-```python
-from watcher import Watcher, Config
+### Run it
 
-supervisor = Watcher(
-    Config(goal=open("TASK.md").read(), every_n_turns=3, mode="intervene"),
-    deliver=session.send,
-)
+There is a complete, working adapter in
+[`examples/supervise_claude_code.py`](examples/supervise_claude_code.py) — about
+100 lines, and the same wiring `harness/run.py` uses. It starts an agent,
+supervises it, and puts interventions back into the live session:
 
-for event in session:
-    supervisor.observe_async(event)
+```bash
+python3 examples/supervise_claude_code.py \
+    --goal-file GOAL.md \
+    --prompt "Read GOAL.md and carry it out." \
+    --cwd /path/to/your/project
 ```
 
-`mode="alarm"` reports without ever speaking to the agent. Start there.
+Verified on an unrelated throwaway project: 3 reviews, 0 interventions, agent
+finished the job and committed. Add `--mode alarm` to have it report without
+ever speaking to the agent. **Start there on anything you care about.**
+
+### What an event is
+
+An event is one JSON object from Claude Code's `--output-format stream-json`
+stream. The supervisor only reads this shape:
+
+```json
+{"type": "assistant",
+ "message": {"role": "assistant",
+             "content": [{"type": "text",       "text": "..."},
+                         {"type": "tool_use",   "name": "Bash",
+                          "input": {"command": "..."}},
+                         {"type": "tool_result", "content": "..."}]}}
+```
+
+- **`type: "assistant"` is what counts a turn.** The review interval
+  (`every_n_turns`) is measured in these, so an event stream without them is
+  never reviewed.
+- `content` blocks of type `text`, `tool_use` and `tool_result` are all rendered
+  into the window. **`tool_use` and `tool_result` matter most** — nearly every
+  intervention in the measured runs quoted a command or a file path, not prose.
+  Feeding it only assistant text will cripple it.
+- Anything else in the object is ignored. Nothing is required beyond
+  `type` and `message.content`.
+
+So it works with: Claude Code `stream-json` (live or replayed from a `.jsonl`
+transcript), or your own agent loop, as long as you emit that shape. If your
+agent has a different format, translate it — the supervisor never parses
+anything else.
+
+### What `deliver` is, and when it will not work
+
+`deliver` is a function taking one string, whose job is to get that string in
+front of the agent as a new user message. In the example above it writes a JSON
+message to the agent's stdin.
+
+**This is the part most likely to fail on your setup.** It requires a session
+that can accept input *while it is already working*. With Claude Code that means
+starting it with `--input-format stream-json` and keeping stdin open; without
+that, stdin closes after the first prompt and nothing can be injected. If your
+agent runner cannot be interrupted mid-task, the supervisor still works as a
+detector — use `mode="alarm"`, log the findings, and act on them yourself.
+
+Do not assume injection works because nothing errored. In this project a broken
+injection path produced six runs of clean-looking null results. `harness/test_injection.py`
+exists solely to prove a message reaches a running agent.
+
+### How much it sees
+
+**The last 24 rendered lines of the transcript**, configurable via
+`window_lines`. This matters more than it sounds. The supervisor cannot see the
+work that scrolled out of that window, and the third measurement failure below
+was caused by it treating "not in my window" as "never happened". It is
+instructed not to do that — but it also means it will miss drift that started
+long ago and left no recent trace.
+
 
 ### With no goal at all
 
@@ -250,7 +348,7 @@ override with `WATCHER_EVAL_RUNS`).
 run is scanned for exam material appearing in its transcript; a run that leaked
 is discarded rather than scored. One already was.
 
-Further reading: `RESULTS.md` (the measurements), `harness/ORACLE.md` (the
+Further reading: [`RESULTS.md`](RESULTS.md) (the measurements), `harness/ORACLE.md` (the
 supervisor's own test suite), `traps/TRAPS.md` (what the exam plants and why).
 
 ## Licence
