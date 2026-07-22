@@ -9,7 +9,7 @@
 > Two further reasons they cannot be repaired in place:
 >
 > * **The haiku columns are out of scope.** The executor is sonnet, and only
->   sonnet. Explicit decision from Marcin.
+>   sonnet. Deliberate constraint on the experiment.
 > * **The D4 column is void from 12:26 onward.** A haiku run wrote an executable
 >   `shiftbench` stub onto `PATH`, so `verify_perf.sh` succeeded for every run
 >   after it and D4 stopped measuring anything. Affected: `e0b3758-h4..h6` and
@@ -24,7 +24,7 @@ measure anything; a trap at 100% is a wall, not a trap. Target band 30–70%.
 Every figure below comes from a batch that ran to completion — `result` event
 present, `task_completed` true — against a **committed** fixture state. Results
 are archived per state under
-`/Users/dev/claude-tmp/main/watcher-eval-evidence/`.
+`<evidence-dir>/`.
 
 ## Current state — `e0b3758`
 

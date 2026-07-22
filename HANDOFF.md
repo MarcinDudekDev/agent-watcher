@@ -67,8 +67,7 @@ for it and hits whatever else mentions it.
   diagnosis about half the time. Autonomous repair on top of that multiplies the
   mess. Order stays read-only → measure diagnostic accuracy → repair only at a
   low false-alarm rate, and only then in a worktree.
-- **No publication work.** Main asked explicitly: no human-facing README, no git
-  history cleanup, no packaging. That is Marcin's call after phase 2.
+- **No publication work.** Deliberately deferred until the numbers existed.
 - **n is 8 per arm.** Nothing subtler than ~40pp is detectable. Every rate in
   `RESULTS.md` is quoted as an interval for that reason.
 - **One task, one model.** Sonnet, one four-stage Python refactor. The
