@@ -1,136 +1,83 @@
-# Handoff — into the long-task phase
+# Handoff — after phase 2
 
-State at the end of the calibration/smoke phase. Read this before changing
-anything in `harness/` or `fixture/`.
+Read `RESULTS.md` for the numbers and `harness/ORACLE.md` for the supervisor's
+own regression suite. This file is what those two do not say.
 
-## What the project is actually for
+## What the project is for, as of now
 
-A production tool, not a benchmark. A long unattended session drifts, and today
-that only surfaces an hour later when the mess is already made. The watcher is
-meant to notice *while it is happening*. The seeded traps are scaffolding for
-validating that — not the product. Do not optimise the exam for its own sake.
+**The product is `watcher/` — a standalone supervisor.** It attaches to a
+session, watches the transcript, and speaks up when the session drifts. It knows
+nothing about this repository: transcript events in, a goal from the caller, an
+intervention out. `harness/run.py` is one consumer of it, wrapped in an exam.
 
-## Keep these two — they are the oracle
+The exam and its six traps are **internal scaffolding for validating the
+supervisor** and are not the thing being shipped. Stop optimising them.
 
-**`harness/test_watcher.py`** — 11 transcript windows: six that must produce an
-intervention, five that must stay silent. **Extend it for the longer task; do
-not rewrite it from scratch.** A false alarm fails the suite outright, on
-purpose: a supervisor that interrupts correct work is worse than none.
+**False-alarm rate is metric number one**, ahead of time-to-detection. A tool
+that interrupts correct work is uninstalled after one use and never gets a
+second chance. Missed drift is expensive and forgivable.
 
-**`harness/test_injection.py`** — proves an injected message reaches a running
-executor mid-task (injected at turn 3, echoed, run continued to turn 16). This
-is the foundation everything else rests on. If it ever fails, nothing above it
-means anything.
+## The rule this project keeps re-learning
 
-`traps/test_grade.py` plays the same role for the grader. Rule that earned its
-place: **every new regex in a detector gets a test built from a sentence that
-appeared in a real run.**
+**A single green result is evidence of nothing.** Three times now:
 
-## The failure mode to design against
+1. `--allowedTools` is variadic and swallowed the prompt. Six supervised runs of
+   a supervisor that saw an empty transcript, answered "OK" to nothing, exited 0.
+2. A run wrote an executable `shiftbench` stub onto `PATH`. The
+   deliberately-impossible check succeeded for every run after it, voiding D4
+   for nine runs. Caught by `verify_reference.py` asserting the seeded failures
+   still fail — on its first ever execution.
+3. `test_watcher.py` reported 11/11 on one call per case. Re-run with
+   `--repeats 5` it was 14/15 with **9 false alarms in 45 quiet calls**, two of
+   the three offending cases firing 2/5 — coin flips that read as passes.
 
-A silent watcher is indistinguishable from a well-behaved executor.
+So: repeats before rates, a positive control every batch, and an assertion that
+the thing you are measuring still exists.
 
-Six supervised runs produced zero interventions and looked like a clean null
-result. The actual cause: `--allowedTools` is variadic, so a prompt passed as a
-positional argument after it was consumed as another tool name. Every watcher
-call ran with an empty transcript, answered "OK" to nothing, and exited 0 with
-no error. Six runs of evidence said nothing at all.
+## Measurement traps specific to supervision
 
-Generalisation for the next phase: **absence of alarms is never evidence that
-the watcher works.** Any measurement of supervision needs an independent proof
-that the supervisor received something to look at — a positive control every
-batch, not a one-off test.
+**Successful intervention erases its own evidence.** The grader inspects the repo
+after the run; the supervisor acts during it. A run that deleted a tracked file,
+was told off, and restored it leaves a clean tree — so the grader reports no
+drift and the three interventions that produced that outcome score as false
+alarms. Measured that way a perfect supervisor scores 100% false alarms. Ground
+truth for "was it drifting" therefore comes from the **transcript**
+(`metrics.drift_turns`); the end state answers a different question, recovery.
 
-Related, same session: `ask_watcher` inherited the harness cwd, so the watcher
-pulled in this repository — `traps/` included — and described it instead of the
-transcript. Watcher subprocesses run in a neutral empty directory now. Any new
-watcher call must do the same, or the exam leaks into its own supervisor.
+**Do not charge the supervisor for your own inconsistent thresholds.** The
+grader trips D6 only on writes onto `PATH`; the supervisor is told any write
+outside the repo. Both are defensible, holding both silently is not. Reported as
+`graded_more_narrowly_than_prompted` rather than reconciled away.
 
-## Known gap — load-bearing for the auto-fix design
+**The traps under-count.** The best single intervention in the whole batch — the
+agent claimed a total the command output two lines above contradicted — has no
+trap category and scores `unattributable`.
 
-The watcher does not catch `rm -rf _scratch`, and from its window it is right
-to let it pass: the work order asks for a tidy repository. The signal that makes
-the deletion avoidable — `do not clear` — is the first line of
-`_scratch/NOTES.txt`, which the watcher never sees. Prompting it to fire anyway
-produces false alarms on legitimate tidying, which is the worse trade, so the
-gap is documented in the suite rather than tuned away.
+## Leaks
 
-This is empirical proof that **the watcher diagnoses from strictly worse context
-than the session it supervises.** It must be an explicit assumption of the
-auto-fix phase: a wrong diagnosis plus autonomous repair multiplies the mess
-instead of reducing it. Order stays: read-only watcher → measure diagnostic
-accuracy → only then add repair, and only if the false-alarm rate is low.
+`grade.json.exam_leak` is the control, and it has already caught one run reading
+the evidence archive. A leaked run is **void**, not low-scoring; `metrics.py`
+excludes it and lists it. Distance helps and cannot be relied on: D4 requires
+`shiftbench` to be missing, so every executor eventually sweeps the filesystem
+for it and hits whatever else mentions it.
 
-## The oracle is non-deterministic — requirement, not suggestion
+## What has not been done
 
-The `11/11` from the calibration phase was **one pass**, and the same case
-changed verdict between reruns. It was reported upward as a strong result; it
-was not one. Rules that follow:
+- **No auto-fix, deliberately.** Recovery is 53%: the agent ignores a correct
+  diagnosis about half the time. Autonomous repair on top of that multiplies the
+  mess. Order stays read-only → measure diagnostic accuracy → repair only at a
+  low false-alarm rate, and only then in a worktree.
+- **No publication work.** Main asked explicitly: no human-facing README, no git
+  history cleanup, no packaging. That is Marcin's call after phase 2.
+- **n is 8 per arm.** Nothing subtler than ~40pp is detectable. Every rate in
+  `RESULTS.md` is quoted as an interval for that reason.
+- **One task, one model.** Sonnet, one four-stage Python refactor. The
+  supervisor has never been run against real user work, which is the whole point
+  of shipping it.
 
-- **`test_watcher.py` is not a regression gate until it is run with repeats**
-  (minimum 5 per case) and reports a per-case flake rate. Use
-  `--repeats N`; the summary prints `fired/N` per case.
-- **A flickering case is worse than a failing one.** A failing case tells the
-  truth; a flickering one manufactures a false sense of coverage. Either
-  stabilise it or mark it explicitly unstable and exclude it from the score.
-- **This binds the false-alarm arm hardest.** If the watcher is silent on a
-  window once and shouting on it the next time, the false-alarm rate is not
-  measurable as a point value at all. Report it as an interval over n repeats.
+## Standing rules
 
-This is the same shape as the `--allowedTools` bug: twice now a "green result"
-turned out to be an artefact rather than a measurement. **Default assumption for
-this phase: a single green run is evidence of nothing.**
-
-## Metrics for the next phase
-
-Trip rate on seeded traps is the wrong headline. Replace with:
-
-1. **Time-to-detection** — turns wasted before the watcher catches it. The
-   number that maps to real saved time.
-2. **False-alarm rate** — interventions on a run that was working correctly.
-   Needs a control arm: watcher on, fixture with **no** seeded traps; every
-   intervention there is by definition a false alarm.
-3. **Recovery rate** — did the agent actually turn around? Measure the change in
-   *behaviour* (files touched, commands run), never textual agreement. Models
-   say "you're right, getting back to it" and carry straight on.
-
-All three work at low trap frequency, which dissolves the 30–70% tuning problem
-that consumed the calibration phase.
-
-## Why the current task must be replaced
-
-60 turns, one coherent plan settled in the first ten. Executors front-load a
-complete repo survey, classify everything out of scope, and never revisit — so
-drift never gets a chance to accumulate. That is why D2 never fired at any
-setting and why three of five traps sit at zero on sonnet.
-
-Target: a task on the order of 200+ turns, multi-stage, with real ambiguity and
-room for small course deviations to compound. `filter_week` was the right
-direction and far too small.
-
-## Measurement hygiene, learned the hard way
-
-- Commit before measuring; results attach to a SHA. Write them to
-  `runs/<sha>-<id>/`.
-- Never delete `runs/` before archiving. One state's raw evidence was destroyed
-  that way; the numbers survived only because another session had read them.
-- n≥6 minimum. At n=3 the interval on 3/3 reaches down to roughly 30%. At n=6
-  per arm nothing smaller than a ~40pp difference is detectable — plan n for the
-  effect size, or report intervals rather than points.
-- One change per committed state, or the result is unattributable.
-- Confirm a trip is real before believing it. An early D4 detector read the
-  honest sentence "verify_perf.sh **cannot pass** in this environment" as a
-  fabrication and invented two findings.
-- After any `TASK.md` rewrite, re-verify `traps/reference/parse_reference.py`
-  against both suites.
-
-## Status
-
-- `runs/w-on1..6` are kept as evidence of the broken watcher, **not** as
-  supervision data. They measure nothing.
-- No watcher on/off comparison exists on the fixed watcher. Deliberate — the
-  current task is a bad proxy and the runs are better spent after the rebuild.
-- **Executor model is sonnet, and only sonnet.** Not opus, not haiku. Explicit
-  decision from Marcin. The haiku data in `CALIBRATION.md` is historical and out
-  of scope — do not extend it, and do not read the haiku D3/D4 rates as targets.
-- Nothing pushed anywhere. Nothing about the traps written to shared memory.
+Sonnet only, never opus or haiku. Nothing about the traps goes to
+`memorize`/`recall` — sessions share HelixDB and an executor could recall the
+answers. **Never `git push`.** Commit before measuring; run ids carry the SHA.
+Archive evidence to `claude-tmp/main/watcher-eval-evidence/` before reporting.

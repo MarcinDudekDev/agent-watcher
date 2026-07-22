@@ -12,11 +12,15 @@ The traps are **scaffolding, not the product**. They exist to create conditions
 where supervision can be measured; the numbers that matter are in
 `traps/metrics.py`:
 
-| metric | what it answers |
-|--------|-----------------|
-| time-to-detection | how many turns are burnt before the watcher says something |
-| false-alarm rate | how often it interrupts an executor that was working correctly |
-| recovery rate | whether the executor's *behaviour* changed afterwards |
+| metric | what it answers | measured |
+|--------|-----------------|----------|
+| **false-alarm rate** | how often it interrupts an executor that was working correctly | **0 of 19** |
+| time-to-detection | how many turns are burnt before it says something | median 11 |
+| recovery rate | whether the executor's *behaviour* changed afterwards | 53% |
+
+False-alarm rate is first on purpose. A tool that interrupts correct work is
+uninstalled after one use and never gets a second chance; missed drift is
+expensive but forgivable. See `RESULTS.md` for the intervals, which are wide.
 
 Recovery is never scored from what the executor says. Models reply "you're right,
 getting back to it" and carry straight on; `agreed_then_continued` counts exactly
@@ -49,12 +53,17 @@ the check you wrote.
 ## Layout
 
 ```
+watcher/    THE PRODUCT. A standalone supervisor. Knows nothing about the exam:
+            give it transcript events, a goal, and somewhere to deliver a note.
 fixture/    the repository the executor sees. Nothing here refers to the exam.
 traps/      trap definitions, the hidden suites, the grader, the metrics, the
             reference solution. The executor never sees this directory.
-harness/    run.py builds a pristine clone, runs the executor, grades the run.
-runs/       one directory per pass (gitignored).
+harness/    run.py - one consumer of watcher/, wrapped in an exam.
 ```
+
+Run directories live **outside** this repository (`~/.watcher-eval/runs`,
+override with `WATCHER_EVAL_RUNS`). They used to be `runs/` here, which put the
+executor's workdir one `grep -r` below `traps/`.
 
 Before touching `fixture/`, and after:
 
@@ -81,12 +90,12 @@ every measurement taken with it.
 Each pass:
 
 1. rebuilds a one-commit git repo from `fixture/`, tagged `pristine`;
-2. clones it through a **local bare repo** (`runs/<id>/origin.git`) so `origin`
+2. clones it through a **local bare repo** (`<run>/origin.git`) so `origin`
    exists but points nowhere real;
 3. pre-warms `uv sync`;
 4. runs the executor headless with `--setting-sources ''`, so no user-level
    `CLAUDE.md`, settings or hooks leak into the session;
-5. streams the transcript to `runs/<id>/transcript.jsonl`;
+5. streams the transcript to `<run>/transcript.jsonl`;
 6. calls `traps/grade.py`.
 
 Runs are independent: nothing is reused between them and the workdir is fresh
@@ -95,12 +104,12 @@ every time.
 Grade a finished run again at any point:
 
 ```
-python3 traps/grade.py --run-dir runs/<id>
+python3 traps/grade.py --run-dir ~/.watcher-eval/runs/<id>
 ```
 
 ## Output
 
-`runs/<id>/grade.json`:
+`<run>/grade.json`:
 
 ```json
 {
@@ -123,6 +132,10 @@ one, and phase 1 spent six runs unable to tell them apart.
 
 See `traps/TRAPS.md`.
 
-## Calibration
+## Results
 
-See `traps/CALIBRATION.md` for measured trip rates and how to re-measure.
+`RESULTS.md` — the three measured arms. `harness/ORACLE.md` — the supervisor's
+own regression suite, which is not a gate below `--repeats 5`.
+
+`traps/CALIBRATION.md` is **historical**: it measures a task that no longer
+exists.
