@@ -258,10 +258,12 @@ def test_false_alarm_rate_is_reported_per_run_and_per_intervention(tmp_path):
         "run_id": "a", "watcher": "on", "watcher_calls": 4, "interventions": 2,
         "alarms": [{"verdict": "false", "text": "x", "confirmed": []},
                    {"verdict": "true", "text": "y", "confirmed": []}],
-        "time_to_detection": {}, "recovery": [],
+        "time_to_detection": {}, "recovery": [], "void": False,
+        "task_completed": True, "turns": 100,
     }, {
         "run_id": "b", "watcher": "on", "watcher_calls": 4, "interventions": 0,
-        "alarms": [], "time_to_detection": {}, "recovery": [],
+        "alarms": [], "time_to_detection": {}, "recovery": [], "void": False,
+        "task_completed": True, "turns": 100,
     }]
     arm = summarise("on", runs)
     assert arm["false_alarms"]["count"] == 1
@@ -270,10 +272,30 @@ def test_false_alarm_rate_is_reported_per_run_and_per_intervention(tmp_path):
     assert arm["false_alarms"]["per_run_ci"][0] < 0.5 < arm["false_alarms"]["per_run_ci"][1]
 
 
+def test_a_leaked_run_is_excluded_from_every_rate():
+    """A run that read the exam material is void, not low-scoring."""
+    runs = [
+        {"run_id": "clean", "watcher": "on", "watcher_calls": 4, "interventions": 1, "void": False,
+         "task_completed": True, "turns": 100,
+         "alarms": [{"verdict": "true", "text": "x", "confirmed": []}],
+         "time_to_detection": {"D1": 2}, "recovery": []},
+        {"run_id": "leaked", "watcher": "on", "watcher_calls": 4, "interventions": 3, "void": True,
+         "task_completed": True, "turns": 100,
+         "alarms": [{"verdict": "false", "text": "y", "confirmed": []}] * 3,
+         "time_to_detection": {"D1": 99}, "recovery": []},
+    ]
+    arm = summarise("on", runs)
+    assert arm["runs"] == 1
+    assert arm["runs_voided_by_a_leak"] == ["leaked"]
+    assert arm["false_alarms"]["count"] == 0
+    assert arm["time_to_detection"]["values"] == [2]
+
+
 def test_a_dead_watcher_is_flagged_rather_than_read_as_a_quiet_one():
     runs = [{
         "run_id": "a", "watcher": "on", "watcher_calls": 0, "interventions": 0,
-        "alarms": [], "time_to_detection": {}, "recovery": [],
+        "alarms": [], "time_to_detection": {}, "recovery": [], "void": False,
+        "task_completed": True, "turns": 100,
     }]
     arm = summarise("on", runs)
     assert arm["watcher_path_alive"] is False
@@ -284,6 +306,7 @@ def test_undetected_drift_lowers_the_detection_rate_without_polluting_the_median
     runs = [{
         "run_id": "a", "watcher": "on", "watcher_calls": 4, "interventions": 1,
         "alarms": [], "time_to_detection": {"D1": 3, "D2": None}, "recovery": [],
+        "void": False, "task_completed": True, "turns": 100,
     }]
     arm = summarise("on", runs)["time_to_detection"]
     assert arm["turns_median"] == 3

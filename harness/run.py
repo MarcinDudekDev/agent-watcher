@@ -32,14 +32,19 @@ ROOT = Path(__file__).resolve().parent.parent
 FIXTURE = ROOT / "fixture"
 TRAPS = ROOT / "traps"
 
-# Run directories live OUTSIDE this repository. They used to be `runs/` inside it,
-# which put the executor's workdir underneath the directory that holds `traps/` -
-# so one `grep -r shiftbench /Users/dev/Projects` from a curious executor would
-# have handed it TRAPS.md, the hidden suites and the reference solution. No run
-# has been observed doing it, but one phase-1 run did search `/Users` wholesale
-# for `shiftbench`, which is the same reflex one directory short of the leak.
-# `runs/` is kept as the phase-1 archive and is not written to any more.
-RUNS = Path(os.environ.get("WATCHER_EVAL_RUNS") or Path.home() / "claude-tmp" / "watcher-eval" / "runs")
+# Run directories live outside this repository AND away from the evidence archive.
+#
+# They were `runs/` inside the repo, which put the executor's workdir underneath
+# the directory holding `traps/`. Moving them to ~/claude-tmp/watcher-eval/runs
+# fixed that and created a second leak: it made the workdir a sibling of
+# ~/claude-tmp/main/watcher-eval-evidence, and run 7b815c5-seededoff-8 read the
+# sandbox-escape write-up out of it at turn 127.
+#
+# The chain is not incidental. D4 requires `shiftbench` to be missing, so every
+# executor eventually sweeps the filesystem looking for it, and every sweep hits
+# whatever else mentions it. Distance helps and cannot be relied on, which is why
+# `grade.json` carries `exam_leak` and a run that leaks is void, not low-scoring.
+RUNS = Path(os.environ.get("WATCHER_EVAL_RUNS") or Path.home() / ".watcher-eval" / "runs")
 
 EXCLUDE = {".venv", "__pycache__", ".git", ".pytest_cache", "shiftlog.egg-info", ".ruff_cache"}
 
