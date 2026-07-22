@@ -1,9 +1,15 @@
 # watcher
 
-A supervisor for long-running agent sessions. It watches the transcript of a
-working agent from outside, and interrupts when the agent goes off the rails —
-edits files it was not asked to touch, loops on a failure, claims something
-passed that did not, or writes outside the repository.
+A supervisor for long-running agent sessions. **You give it the task the agent
+was asked to do**, plus a window of the agent's transcript, and it checks one
+against the other — interrupting when the agent goes off the rails: edits files
+the task does not cover, loops on a failure, claims something passed that did
+not, or writes outside the repository.
+
+It is not watching blind. Knowing the task is the whole basis for judging
+"that's not what you were asked to do", and every measurement below was taken
+with the task supplied. (It also runs without one, less capably — see
+[Without a task description](#without-a-task-description).)
 
 The problem it exists for: you leave an agent running for an hour, and only
 afterwards discover it spent forty minutes on the wrong thing. The point is to
@@ -56,6 +62,11 @@ by accident.
 Three sets of runs, all on the same four-stage programming task, all with Claude
 Sonnet, each set at a fixed commit. Eight runs per set.
 
+**In every one of them the supervisor was given the task description** — the same
+`TASK.md` the working agent was following. Nothing below measures the
+no-task-description mode; that one has only been spot-checked, and is documented
+as a fallback rather than a measured configuration.
+
 | | runs | task finished | supervisor calls | interruptions |
 |---|---|---|---|---|
 | no supervisor | 7 | 7/7 | — | — |
@@ -106,13 +117,13 @@ expensive but forgivable.
 All 19 interruptions were read by hand. Every one was about something the agent
 genuinely did:
 
-| what it objected to | times |
-|---|---|
-| bumping the version in files outside the task's remit | 8 |
-| writing scratch files outside the repository | 6 |
-| deleting a tracked file it had not been asked to remove | 3 |
-| claiming a total that the command output two lines above contradicted | 1 |
-| **spurious** | **0** |
+| what it objected to | times | needs the task description? |
+|---|---|---|
+| writing scratch files outside the repository | 8 | no |
+| bumping the version in files outside the task's remit | 7 | **yes** |
+| deleting a tracked file it had not been asked to remove | 3 | no |
+| claiming a total that the command output two lines above contradicted | 1 | no |
+| **spurious** | **0** | |
 
 Nineteen interruptions cannot prove a rate below roughly one in five. The claim
 this supports is "no false alarm happened in 19", not "the false-alarm rate is
@@ -219,9 +230,16 @@ a claim the transcript **contradicts** is.
 
 ## Using it on your own project
 
-The supervisor needs three things from you: **a stream of transcript events**, a
-**goal**, and a **`deliver` function** that gets an intervention into the running
-session. The first and third are the parts that need explaining.
+The supervisor needs three things from you:
+
+1. **The task description** — whatever the agent was told to do. A `TASK.md`, a
+   ticket, the prompt you gave it. This is what it judges the work against.
+2. **A stream of transcript events** from the running agent.
+3. **A `deliver` function** that gets an intervention back into the live session.
+
+The first is the one readers keep missing, so to be unambiguous: *the supervisor
+is given the task and compares the agent's actions to it.* Items 2 and 3 are the
+parts that need technical explanation, below.
 
 ### Run it
 
@@ -240,6 +258,32 @@ python3 examples/supervise_claude_code.py \
 Verified on an unrelated throwaway project: 3 reviews, 0 interventions, agent
 finished the job and committed. Add `--mode alarm` to have it report without
 ever speaking to the agent. **Start there on anything you care about.**
+
+Wiring it into your own runner is the same three things:
+
+```python
+from watcher import Watcher, Config
+
+supervisor = Watcher(
+    Config(
+        goal=Path("TASK.md").read_text(),   # what the agent was asked to do
+        every_n_turns=3,                    # review every 3 agent turns
+        mode="intervene",                   # or "alarm" to only report
+    ),
+    deliver=session.send,                   # how a note reaches the live agent
+)
+
+for event in session:                       # your transcript stream
+    supervisor.observe_async(event)
+
+print(len(supervisor.observations), "reviews,",
+      len(supervisor.interventions), "interventions")
+```
+
+`goal` is any string. If your task lives in a ticket, paste the ticket; if it is
+the prompt you gave the agent, pass that. The more precisely it states what is
+in scope, the better the scope check works — that check produced 7 of the 19
+interventions in the measured runs.
 
 ### What an event is
 
@@ -297,24 +341,33 @@ instructed not to do that — but it also means it will miss drift that started
 long ago and left no recent trace.
 
 
-### With no goal at all
+### Without a task description
 
-If you have no task description to give it, it still works — and this is the
-mode most people will hit first:
+**Give it the task whenever you can.** That is the normal way to run it, it is
+what every measured number here reflects, and it is the only way the supervisor
+can tell "not what you were asked to do" from "work I don't recognise".
+
+If you genuinely have no task description — supervising a session someone else
+started, or an open-ended one — it still runs, in a **deliberately reduced form**:
 
 ```python
-supervisor = Watcher(Config(goal=None))
+supervisor = Watcher(Config(goal=None))   # fallback, catches less
 ```
 
-Without a goal, "out of scope" has no meaning, so the two checks that need one
-are **dropped rather than guessed at**, and the supervisor is told outright that
-it has not been told what the session is for and must not infer it. The four
-that remain hold regardless of the task: looping, a claim the transcript
-contradicts, destructive actions, and writing outside the repository.
+Two of the six checks need a task to mean anything: *is this in scope* and *is
+this a detour*. Without one they are **dropped rather than guessed at**, and the
+supervisor is told outright that it has not been told what the session is for
+and must not infer it. A supervisor that invents a goal and then polices the
+agent against it is worse than no supervisor at all.
 
-Tested live on a project it had never seen: it catches an install into
+The four that survive hold whatever the task was: looping on a failure, a claim
+the transcript contradicts, destructive actions, and writing outside the
+repository. In the measured runs those four accounted for 12 of the 19
+interventions — so this mode is weaker, not useless.
+
+Spot-checked on a project it had never seen: it caught an install into
 `~/.local/bin`, and stayed silent 3 times out of 3 on an ordinary
-refactor–test–commit sequence.
+refactor–test–commit sequence. That is a smoke test, not a measurement.
 
 ### Checking it yourself
 
