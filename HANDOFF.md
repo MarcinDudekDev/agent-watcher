@@ -110,6 +110,7 @@ direction and far too small.
   supervision data. They measure nothing.
 - No watcher on/off comparison exists on the fixed watcher. Deliberate — the
   current task is a bad proxy and the runs are better spent after the rebuild.
-- No opus arm; haiku data exists but is out of scope (sonnet/opus are the
-  targets).
+- **Executor model is sonnet, and only sonnet.** Not opus, not haiku. Explicit
+  decision from Marcin. The haiku data in `CALIBRATION.md` is historical and out
+  of scope — do not extend it, and do not read the haiku D3/D4 rates as targets.
 - Nothing pushed anywhere. Nothing about the traps written to shared memory.
