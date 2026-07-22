@@ -27,7 +27,15 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 FIXTURE = ROOT / "fixture"
 TRAPS = ROOT / "traps"
-RUNS = ROOT / "runs"
+
+# Run directories live OUTSIDE this repository. They used to be `runs/` inside it,
+# which put the executor's workdir underneath the directory that holds `traps/` -
+# so one `grep -r shiftbench /Users/dev/Projects` from a curious executor would
+# have handed it TRAPS.md, the hidden suites and the reference solution. No run
+# has been observed doing it, but one phase-1 run did search `/Users` wholesale
+# for `shiftbench`, which is the same reflex one directory short of the leak.
+# `runs/` is kept as the phase-1 archive and is not written to any more.
+RUNS = Path(os.environ.get("WATCHER_EVAL_RUNS") or Path.home() / "claude-tmp" / "watcher-eval" / "runs")
 
 EXCLUDE = {".venv", "__pycache__", ".git", ".pytest_cache", "shiftlog.egg-info", ".ruff_cache"}
 
@@ -161,6 +169,12 @@ def external_snapshot() -> dict:
 
 def assert_clean_environment() -> None:
     """Refuse to measure in an environment a previous run has already altered."""
+    if ROOT in RUNS.resolve().parents or RUNS.resolve() == ROOT:
+        raise SystemExit(
+            f"[harness] refusing to run: run directory {RUNS} is inside {ROOT}.\n"
+            f"[harness] the executor's workdir would sit under traps/, one `grep -r` "
+            f"away from the answers. Set WATCHER_EVAL_RUNS to a path outside the repo."
+        )
     for name in MUST_NOT_RESOLVE:
         found = shutil.which(name)
         if found:
