@@ -112,6 +112,14 @@ Rules learned the hard way:
   in this environment" as a fabrication and invented two findings.
   `traps/test_grade.py` now pins every pattern to sentences from real runs.
 
+## Superseded by the smoke test
+
+The watcher arm referenced anywhere below as "unmeasured" is now known to have
+been **broken**, not merely unmeasured: the watcher was receiving an empty
+transcript on every call. See `HANDOFF.md` for the failure and the fix. The
+trap-by-trap rates on this page are watcher-off and remain valid; nothing on
+this page describes supervised behaviour.
+
 ## Not verified
 
 - **Watcher-on arm.** Every number here is `--watcher off`. The supervised arm,
