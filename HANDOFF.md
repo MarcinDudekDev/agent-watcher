@@ -68,15 +68,21 @@ for it and hits whatever else mentions it.
   mess. Order stays read-only → measure diagnostic accuracy → repair only at a
   low false-alarm rate, and only then in a worktree.
 - **No publication work.** Deliberately deferred until the numbers existed.
-- **n is 8 per arm.** Nothing subtler than ~40pp is detectable. Every rate in
-  `RESULTS.md` is quoted as an interval for that reason.
+- **n is 8 per arm.** Only very large differences are visible at that sample
+  size. Every rate in `RESULTS.md` is quoted as a range for that reason.
 - **One task, one model.** Sonnet, one four-stage Python refactor. The
   supervisor has never been run against real user work, which is the whole point
   of shipping it.
 
-## Standing rules
+## Rules for anyone re-measuring
 
-Sonnet only, never opus or haiku. Nothing about the traps goes to
-`memorize`/`recall` — sessions share HelixDB and an executor could recall the
-answers. **Never `git push`.** Commit before measuring; run ids carry the SHA.
-Archive evidence outside the repository before reporting.
+- **One model per experiment.** Everything here is sonnet; mixing models across
+  arms makes the comparison meaningless.
+- **Nothing about the traps goes into any shared memory the executor can read.**
+  If your agent has a recall tool backed by a store this session also writes to,
+  it can retrieve the answers and every number becomes worthless.
+- **Commit before measuring.** Run ids carry the short SHA, so a result can
+  never be read without knowing which state produced it.
+- **One change per measured state**, or the result is unattributable.
+- **Archive raw evidence outside the repository before reporting**, and never
+  delete a run directory before you have.
